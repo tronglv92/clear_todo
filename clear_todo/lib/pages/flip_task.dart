@@ -19,7 +19,7 @@ class FlipTask extends StatelessWidget {
     double translateZ=(-TASK_HEIGHT/2)*math.sin(rotateXTop.abs());
     double scaleFlip=500/(500-translateZ);
 
-    print("scale "+scale.toString());
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

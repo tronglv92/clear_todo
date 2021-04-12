@@ -1,20 +1,21 @@
 import 'package:clear_todo/helper/animated_interpolation.dart';
+import 'package:clear_todo/models/task.dart';
 import 'package:clear_todo/pages/flip_task.dart';
 
-import 'package:clear_todo/pages/task.dart';
+import 'package:clear_todo/pages/task_view.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
 class NewTask extends StatelessWidget {
-  final Color color;
-  final String task;
+
+  final Task task;
   final double translationY;
   final double scale;
 
   NewTask(
-      {this.color = Colors.red,
+      {
       this.translationY,
-      this.task = "New Task",
+      this.task ,
       this.scale});
 
   @override
@@ -29,12 +30,15 @@ class NewTask extends StatelessWidget {
       height: TASK_HEIGHT,
       top: translationY,
       width: MediaQuery.of(context).size.width,
+      // child: TaskView(
+      //   task: task,
+      // ),
       child: FlipTask(
         scale: scale,
         child: Stack(
           children: [
-            Task(
-              color: color,
+            TaskView(
+
               task: task,
             ),
             Positioned.fill(

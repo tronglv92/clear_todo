@@ -2,7 +2,6 @@ import 'package:clear_todo/pages/test_page.dart';
 import 'package:flutter/material.dart';
 
 import 'pages/personal_list_page.dart';
-import 'pages/test/test_flip_page.dart';
 
 void main() {
   runApp(MyApp());
@@ -26,8 +25,7 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: PersonalListPage(),
+      home: TestPage(),
     );
   }
 }
-
