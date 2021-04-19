@@ -4,12 +4,23 @@ import 'package:clear_todo/helper/animated_helper.dart';
 import 'package:clear_todo/helper/animated_interpolation.dart';
 import 'package:clear_todo/models/task.dart';
 import 'package:clear_todo/pages/new_task.dart';
+import 'package:clear_todo/pages/new_task_overscroll.dart';
 import 'package:clear_todo/pages/task_view.dart';
 import 'package:clear_todo/helper/allow_multiple_scale_recognizer.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ReorderableList;
 import 'package:flutter/physics.dart';
+import 'dart:math' as math;
+
+import 'flutter_reorderable_list.dart';
 
 const double TASK_HEIGHT = 64;
+
+enum STATE_ANIMATION {
+  NONE,
+  FLIP,
+  OVER_SCROLL,
+  RE_ORDER,
+}
 
 class PersonalListPage extends StatefulWidget {
   @override
@@ -20,9 +31,13 @@ class _PersonalListPageState extends State<PersonalListPage>
     with TickerProviderStateMixin {
   ScrollController _scrollController;
   double scrollPosition = 0;
+  double overScroll = 0;
+  AnimationController _controllerScaleEnd;
+  Animation<double> _animationScaleEnd;
 
-  AnimationController _controllerSpring;
-  Animation<double> _animationSpring;
+  AnimationController _controllerOverScrollEnd;
+  Animation<double> _animationOverScrollEnd;
+  STATE_ANIMATION stateAnimation = STATE_ANIMATION.NONE;
 
   // List<String> tasks = [
   //   "Swipe to the right to complete!",
@@ -82,30 +97,34 @@ class _PersonalListPageState extends State<PersonalListPage>
     Task(name: "position 34")
   ];
 
-
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
 
     _scrollController = ScrollController();
-    _scrollController.addListener(() {
-      scrollPosition = _scrollController.offset;
-    });
+
+    initData();
 
     initInterpolation();
-    initAnimation();
+    initAnimationSpring();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {});
     setUpColorTasks();
   }
 
-  void initAnimation() {
-    _controllerSpring =
+  initData() {
+    for (int i = 0; i < tasks.length; i++) {
+      tasks[i].key = Key(i.toString());
+    }
+  }
+
+  void initAnimationSpring() {
+    _controllerScaleEnd =
         AnimationController(vsync: this, lowerBound: -500, upperBound: 500)
           ..addListener(() {
             if (runAnimationSpring == true) {
               setState(() {
-                scale = _animationSpring?.value;
+                scale = _animationScaleEnd?.value;
               });
             }
           })
@@ -113,17 +132,15 @@ class _PersonalListPageState extends State<PersonalListPage>
             // runSpringComplete = true;
             if (status == AnimationStatus.completed) {
               runAnimationSpring = false;
-
-              // if (_animationSpring != null && _animationSpring.value >= 2) {
-              //   tasks.insert(
-              //       index,
-              //       Task(
-              //           name: "new value " + index.toString(),
-              //           color: ipColor.transform(index.toDouble())));
-              // }
-              // print(
-              //     "_animationSpring?.value  " + _animationSpring?.value.toString());
             }
+          });
+
+    _controllerOverScrollEnd =
+        AnimationController(vsync: this, lowerBound: -500, upperBound: 500)
+          ..addListener(() {
+            setState(() {
+              overScroll = _animationOverScrollEnd?.value;
+            });
           });
   }
 
@@ -146,7 +163,8 @@ class _PersonalListPageState extends State<PersonalListPage>
   @override
   void dispose() {
     // TODO: implement dispose
-    _controllerSpring?.dispose();
+    _controllerScaleEnd?.dispose();
+    _controllerOverScrollEnd?.dispose();
     _scrollController?.dispose();
     _timer.cancel();
     super.dispose();
@@ -156,13 +174,21 @@ class _PersonalListPageState extends State<PersonalListPage>
     title: Text('Personal List'),
   );
 
+  int pointerCount=0;
   onScaleStart(ScaleStartDetails scaleStart) {
+
     if (scaleStart.pointerCount == 2) {
       this.setState(() {
+        pointerCount=scaleStart.pointerCount;
         isRunningScale = true;
+        stateAnimation = STATE_ANIMATION.FLIP;
         focalY = scaleStart.localFocalPoint.dy;
       });
     }
+   else
+     {
+       pointerCount=scaleStart.pointerCount;
+     }
   }
 
   onScaleUpdate(ScaleUpdateDetails scaleUpdate) {
@@ -175,42 +201,86 @@ class _PersonalListPageState extends State<PersonalListPage>
   }
 
   onScaleEnd(ScaleEndDetails scaleEnd) {
+    setState(() {
+      pointerCount=0;
+    });
+
     if (isRunningScale == true) {
       isRunningScale = false;
       runAnimationSpring = true;
-      _animationSpring =
-          _controllerSpring?.drive(Tween(begin: scaleRaw, end: 0));
+      _animationScaleEnd =
+          _controllerScaleEnd?.drive(Tween(begin: scaleRaw, end: 0));
       AnimatedHelper.runAnimateSpring(
-        begin: scaleRaw,
-        end: 0,
-        controllerSpring: _controllerSpring,
-      );
-      // if (scaleRaw <= 2) {
-      //   runAnimationSpring = true;
-      //   _animationSpring =
-      //       _controllerSpring?.drive(Tween(begin: scaleRaw, end: 0));
-      //   AnimatedHelper.runAnimateSpring(
-      //     begin: scaleRaw,
-      //     end: 0,
-      //     controllerSpring: _controllerSpring,
-      //   );
-      // } else {
-      //   runAnimationSpring = true;
-      //   _animationSpring =
-      //       _controllerSpring?.drive(Tween(begin: scaleRaw, end: 2));
-      //   AnimatedHelper.runAnimateSpring(
-      //     begin: scaleRaw,
-      //     end: 0,
-      //     controllerSpring: _controllerSpring,
-      //   );
-      // }
+          begin: scaleRaw,
+          end: 0,
+          controllerSpring: _controllerScaleEnd,
+          whenCompleteOrCancel: () {
+            stateAnimation = STATE_ANIMATION.NONE;
+          });
     }
+  }
+
+  bool onNotification(ScrollNotification notification) {
+    if (notification is ScrollStartNotification) {
+    } else if (notification is ScrollEndNotification) {
+      if (scrollPosition <= TASK_HEIGHT) {
+        _animationOverScrollEnd =
+            _controllerOverScrollEnd?.drive(Tween(begin: overScroll, end: 0));
+        AnimatedHelper.runAnimateSpring(
+            begin: overScroll,
+            end: 0,
+            controllerSpring: _controllerOverScrollEnd,
+            whenCompleteOrCancel: () {
+              stateAnimation = STATE_ANIMATION.NONE;
+            });
+      }
+      else
+        {
+          stateAnimation = STATE_ANIMATION.NONE;
+        }
+    } else if (notification is ScrollUpdateNotification) {
+      setState(() {
+        scrollPosition = notification.metrics.pixels;
+
+      });
+    } else if (notification is OverscrollNotification) {
+      setState(() {
+        stateAnimation = STATE_ANIMATION.OVER_SCROLL;
+        overScroll =
+            (overScroll + notification.overscroll / 2).clamp(-TASK_HEIGHT, 0.0);
+      });
+    }
+    return false;
+  }
+
+  // REORDER
+  int _indexOfKey(Key key) {
+    return tasks.indexWhere((Task d) => d.key == key);
+  }
+
+  bool _reorderCallback(Key item, Key newPosition) {
+    int draggingIndex = _indexOfKey(item);
+    int newPositionIndex = _indexOfKey(newPosition);
+    Task draggedItem = tasks[draggingIndex];
+    setState(() {
+      debugPrint("Reordering $item -> $newPosition");
+      tasks.removeAt(draggingIndex);
+      tasks.insert(newPositionIndex, draggedItem);
+    });
+    return true;
+  }
+
+  void _reorderDone(Key item) {
+    final Task draggedItem = tasks[_indexOfKey(item)];
+    debugPrint("Reordering finished for ${draggedItem.name}}");
   }
 
   @override
   Widget build(BuildContext context) {
     final Size size = MediaQuery.of(context).size;
-    // cel>= round>= floor
+
+    // FLIP
+
     int indexFirstItemCell = (scrollPosition / TASK_HEIGHT).ceil();
     int indexFirstItemFloor = (scrollPosition / TASK_HEIGHT).floor();
     int indexFirstItemWhenScroll = (scrollPosition / TASK_HEIGHT).round();
@@ -226,81 +296,106 @@ class _PersonalListPageState extends State<PersonalListPage>
       }
     }
 
-    // Offset global=Offset(0, 0);
-    // Offset localStack=Offset(0, 0);
-    // if(keyListView.currentContext!=null && keyStack.currentContext!=null)
-    //   {
-    //     RenderBox renderListView = keyListView.currentContext.findRenderObject();
-    //     RenderBox renderStack = keyStack.currentContext.findRenderObject();
-    //
-    //     Offset offsetScroll=Offset(0, index*TASK_HEIGHT);
-    //      global= renderListView.localToGlobal(offsetScroll);
-    //       localStack=renderStack.globalToLocal(global);
-    //     print("localStack "+ localStack.toString());
-    //   }
-    //
-    //
-    // print("size "+size.height.toString());
+    // overScroll to create new task
+
+    double positionOverScroll =
+        (-overScroll - scrollPosition).clamp(0.0, TASK_HEIGHT);
+    double translationOverScroll = -TASK_HEIGHT;
+    translationOverScroll = InterpolationTween(
+            inputRange: [0, TASK_HEIGHT],
+            outputRange: [-TASK_HEIGHT, 0],
+            extrapolate: ExtrapolateType.clamp)
+        .transform(positionOverScroll);
+    double rotationX = InterpolationTween(
+            inputRange: [0, TASK_HEIGHT],
+            outputRange: [-math.pi / 2, 0],
+            extrapolate: ExtrapolateType.clamp)
+        .transform(positionOverScroll);
     return Scaffold(
       appBar: appBar,
-      body: SafeArea(
-        child: RawGestureDetector(
-          behavior: HitTestBehavior.translucent,
-          gestures: {
-            AllowMultipleScaleRecognizer: GestureRecognizerFactoryWithHandlers<
-                AllowMultipleScaleRecognizer>(
-              () => AllowMultipleScaleRecognizer(), //constructor
-              (AllowMultipleScaleRecognizer instance) {
-                //initializer
-                instance.onStart = (details) => this.onScaleStart(details);
-                instance.onEnd = (details) => this.onScaleEnd(details);
-                instance.onUpdate = (details) => this.onScaleUpdate(details);
-              },
+      body: RawGestureDetector(
+        behavior: HitTestBehavior.translucent,
+        gestures: {
+          AllowMultipleScaleRecognizer: GestureRecognizerFactoryWithHandlers<
+              AllowMultipleScaleRecognizer>(
+            () => AllowMultipleScaleRecognizer(), //constructor
+            (AllowMultipleScaleRecognizer instance) {
+              //initializer
+              instance.onStart = (details) => this.onScaleStart(details);
+              instance.onEnd = (details) => this.onScaleEnd(details);
+              instance.onUpdate = (details) => this.onScaleUpdate(details);
+            },
+          ),
+        },
+        child: Stack(
+          children: [
+            NewTask(
+              translationY: translateY,
+              scale: scale,
+              task: Task(name: "New Task ", color: Colors.blue),
             ),
-
-          },
-          child: Stack(
-
-            children: [
-              NewTask(
-                translationY: translateY,
-                scale: scale,
-                task: Task(name: "New Task ", color: Colors.blue),
-              ),
-              SingleChildScrollView(
-
-                controller: _scrollController,
-                physics: isRunningScale == true
-                    ? NeverScrollableScrollPhysics()
-                    : ClampingScrollPhysics(),
-                child: Column(
-                  children: listTasks(),
+            NewTaskOverScroll(
+              translateY: translationOverScroll,
+              rotateX: rotationX,
+            ),
+            NotificationListener(
+              onNotification: onNotification,
+              child: ReorderableList(
+                onReorder: this._reorderCallback,
+                onReorderDone: this._reorderDone,
+                child: SingleChildScrollView(
+                  physics: ClampingScrollPhysics(),
+                  child: Column(
+                    children: listTasks(),
+                  ),
                 ),
               ),
-
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   List<Widget> listTasks() {
-    double scaleFactor = scale * (TASK_HEIGHT / 4);
+    double translateY = 0;
+
     List<Widget> results = [];
+
     for (int i = 0; i < tasks.length; i++) {
-      bool isOnTop = i < index;
-      double translateY = scaleFactor * (isOnTop == true ? -1 : 1);
+      if (stateAnimation == STATE_ANIMATION.FLIP) {
+        print("STATE_ANIMATION.FLIP");
+        final double scaleFactor = scale * (TASK_HEIGHT / 4);
+        bool isOnTop = i < index;
+        translateY = scaleFactor * (isOnTop == true ? -1 : 1);
+      } else if (stateAnimation == STATE_ANIMATION.OVER_SCROLL) {
+        translateY = -overScroll;
+      }
 
-      // print("======================>");
-      // print("i "+i.toString());
-
-      // print("<======================");
       results.add(Transform.translate(
         offset: Offset(0, translateY),
-        child: TaskView(
-          task: tasks[i],
-        ),
+        child: ReorderableItem(
+            key: tasks[i].key,
+            childBuilder: (BuildContext context, ReorderableItemState state) {
+              return DelayedReorderableListener(
+                canStart: (){
+                  print("pointerCount "+pointerCount.toString());
+                  if(stateAnimation==STATE_ANIMATION.NONE && pointerCount<2)
+                    {
+                      return true;
+                    }
+                  return false;
+                },
+                child: Opacity(
+                  opacity:
+                      state == ReorderableItemState.placeholder ? 0.0 : 1.0,
+                  child: TaskView(
+                    key: tasks[i].key,
+                    task: tasks[i],
+                  ),
+                ),
+              );
+            }),
       ));
     }
     return results;

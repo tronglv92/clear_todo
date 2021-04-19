@@ -1,4 +1,6 @@
-import 'package:clear_todo/pages/test_page.dart';
+import 'package:clear_todo/pages/test/test_page.dart';
+import 'package:clear_todo/pages/test_reorder/test_reorder_page.dart';
+
 import 'package:flutter/material.dart';
 
 import 'pages/personal_list_page.dart';
@@ -25,7 +27,7 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: TestPage(),
+      home: PersonalListPage(),
     );
   }
 }

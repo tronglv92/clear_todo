@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 class Task{
   String name;
+  Key key;
   Color color=Colors.white;
-  Task({this.name,this.color});
+  Task({this.name,this.color,this.key});
 }
