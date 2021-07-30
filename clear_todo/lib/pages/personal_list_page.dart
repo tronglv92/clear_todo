@@ -258,22 +258,22 @@ class _PersonalListPageState extends State<PersonalListPage>
     return tasks.indexWhere((Task d) => d.key == key);
   }
 
-  bool _reorderCallback(Key item, Key newPosition) {
-    int draggingIndex = _indexOfKey(item);
-    int newPositionIndex = _indexOfKey(newPosition);
-    Task draggedItem = tasks[draggingIndex];
-    setState(() {
-      debugPrint("Reordering $item -> $newPosition");
-      tasks.removeAt(draggingIndex);
-      tasks.insert(newPositionIndex, draggedItem);
-    });
-    return true;
-  }
-
-  void _reorderDone(Key item) {
-    final Task draggedItem = tasks[_indexOfKey(item)];
-    debugPrint("Reordering finished for ${draggedItem.name}}");
-  }
+  // bool _reorderCallback(Key item, Key newPosition) {
+  //   int draggingIndex = _indexOfKey(item);
+  //   int newPositionIndex = _indexOfKey(newPosition);
+  //   Task draggedItem = tasks[draggingIndex];
+  //   setState(() {
+  //     debugPrint("Reordering $item -> $newPosition");
+  //     tasks.removeAt(draggingIndex);
+  //     tasks.insert(newPositionIndex, draggedItem);
+  //   });
+  //   return true;
+  // }
+  //
+  // void _reorderDone(Key item) {
+  //   final Task draggedItem = tasks[_indexOfKey(item)];
+  //   debugPrint("Reordering finished for ${draggedItem.name}}");
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -329,28 +329,39 @@ class _PersonalListPageState extends State<PersonalListPage>
         },
         child: Stack(
           children: [
+            // New Task appears when Pinching
             NewTask(
               translationY: translateY,
               scale: scale,
               task: Task(name: "New Task ", color: Colors.blue),
             ),
+            // New Task appears when over scroll
             NewTaskOverScroll(
               translateY: translationOverScroll,
               rotateX: rotationX,
             ),
             NotificationListener(
               onNotification: onNotification,
-              child: ReorderableList(
-                onReorder: this._reorderCallback,
-                onReorderDone: this._reorderDone,
-                child: SingleChildScrollView(
-                  physics: ClampingScrollPhysics(),
-                  child: Column(
-                    children: listTasks(),
-                  ),
+              child: SingleChildScrollView(
+                physics: ClampingScrollPhysics(),
+                child: Column(
+                  children: listTasks(),
                 ),
               ),
             ),
+            // NotificationListener(
+            //   onNotification: onNotification,
+            //   child: ReorderableList(
+            //     onReorder: this._reorderCallback,
+            //     onReorderDone: this._reorderDone,
+            //     child: SingleChildScrollView(
+            //       physics: ClampingScrollPhysics(),
+            //       child: Column(
+            //         children: listTasks(),
+            //       ),
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),
@@ -371,32 +382,38 @@ class _PersonalListPageState extends State<PersonalListPage>
       } else if (stateAnimation == STATE_ANIMATION.OVER_SCROLL) {
         translateY = -overScroll;
       }
-
       results.add(Transform.translate(
         offset: Offset(0, translateY),
-        child: ReorderableItem(
-            key: tasks[i].key,
-            childBuilder: (BuildContext context, ReorderableItemState state) {
-              return DelayedReorderableListener(
-                canStart: (){
-                  print("pointerCount "+pointerCount.toString());
-                  if(stateAnimation==STATE_ANIMATION.NONE && pointerCount<2)
-                    {
-                      return true;
-                    }
-                  return false;
-                },
-                child: Opacity(
-                  opacity:
-                      state == ReorderableItemState.placeholder ? 0.0 : 1.0,
-                  child: TaskView(
-                    key: tasks[i].key,
-                    task: tasks[i],
-                  ),
-                ),
-              );
-            }),
+        child: TaskView(
+          key: tasks[i].key,
+          task: tasks[i],
+        ),
       ));
+      // results.add(Transform.translate(
+      //   offset: Offset(0, translateY),
+      //   child: ReorderableItem(
+      //       key: tasks[i].key,
+      //       childBuilder: (BuildContext context, ReorderableItemState state) {
+      //         return DelayedReorderableListener(
+      //           canStart: (){
+      //             print("pointerCount "+pointerCount.toString());
+      //             if(stateAnimation==STATE_ANIMATION.NONE && pointerCount<2)
+      //               {
+      //                 return true;
+      //               }
+      //             return false;
+      //           },
+      //           child: Opacity(
+      //             opacity:
+      //                 state == ReorderableItemState.placeholder ? 0.0 : 1.0,
+      //             child: TaskView(
+      //               key: tasks[i].key,
+      //               task: tasks[i],
+      //             ),
+      //           ),
+      //         );
+      //       }),
+      // ));
     }
     return results;
   }
